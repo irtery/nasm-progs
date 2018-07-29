@@ -11,7 +11,7 @@ start:
 
     push eax
     call print
-    sub esp, 4
+    add esp, 4
 
     PUTCHAR 10
     FINISH
@@ -72,7 +72,7 @@ print:
     loop .print_next_digit
 .quit:
     pop ebx               ; restore EBX
-    mov esp, ebp          ; clean stack frame
     popf
+    mov esp, ebp          ; clean stack frame
     pop ebp               
     ret
