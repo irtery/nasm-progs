@@ -8,12 +8,18 @@ global start
 section .text
 start:
     call scan
+
     push eax
-    call print            ; check
-    jmp finish
+    call print
+    sub esp, 4
+
+    PUTCHAR 10
+    FINISH
+
 scan:
     push ebp              ; organize stack frame
     mov ebp, esp
+    pushf                 ; store flags
     push ebx              ; according CDECL convention EBX should be stored
     push esi              ; according CDECL convention ESI should be stored
     xor esi, esi          ; ESI for result
@@ -38,12 +44,14 @@ scan:
     mov eax, esi          ; result in EAX
     pop esi               ; clean stack frame
     pop ebx
+    popf
     mov esp, ebp
     pop ebp
     ret
 print:
     push ebp              ; organize stack frame
     mov ebp, esp
+    pushf                 ; store flags
     push ebx              ; according CDECL convention EBX should be stored
     mov eax, [ebp+8]      ; store number to print
     mov ebx, 10           ; decimal notation
@@ -65,8 +73,6 @@ print:
 .quit:
     pop ebx               ; restore EBX
     mov esp, ebp          ; clean stack frame
+    popf
     pop ebp               
     ret
-finish:
-    PUTCHAR 10
-    FINISH
