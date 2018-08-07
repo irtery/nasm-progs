@@ -1,0 +1,135 @@
+     1                                  ; Stdin contains N in decimal notation
+     2                                  ; Read it, save to EAX
+     3                                  
+     4                                  %include "my_io.inc"
+     1                              <1> %macro _syscall_read 3
+     2                              <1>   _syscall_3 3, %1, %2, %3
+     3                              <1> %endmacro
+     4                              <1> 
+     5                              <1> %macro _syscall_write 3
+     6                              <1>   _syscall_3 4, %1, %2, %3
+     7                              <1> %endmacro
+     8                              <1> 
+     9                              <1> %macro _syscall_3 4
+    10                              <1>   push  %4
+    11                              <1>   push  %3
+    12                              <1>   push  %2
+    13                              <1>   mov eax, %1
+    14                              <1>   sub esp, 4
+    15                              <1>   int 0x80
+    16                              <1>   add esp, 16
+    17                              <1> %endmacro
+    18                              <1> 
+    19                              <1> %macro GETCHAR 0
+    20                              <1>   pushf
+    21                              <1>   push  edi
+    22                              <1>   sub esp, 2
+    23                              <1>   mov edi, esp
+    24                              <1>   _syscall_read 0, edi, 1
+    25                              <1>   cmp eax, 1
+    26                              <1>   jne %%eof_reached
+    27                              <1>   xor eax,eax
+    28                              <1>   mov al, [edi]
+    29                              <1>   jmp %%quit
+    30                              <1> %%eof_reached:
+    31                              <1>   xor eax, eax
+    32                              <1>   not eax               ; eax := -1
+    33                              <1> %%quit:
+    34                              <1>   add esp, 2
+    35                              <1>   pop edi
+    36                              <1>   popf
+    37                              <1> %endmacro
+    38                              <1> 
+    39                              <1> %macro  PUTCHAR 1
+    40                              <1>   pusha
+    41                              <1>   pushf
+    42                              <1>   mov al, %1
+    43                              <1>   sub esp, 2              ; reserve memory for buffer
+    44                              <1>   mov edi, esp
+    45                              <1>   mov [edi], al
+    46                              <1>   _syscall_write 1, edi, 1
+    47                              <1>   add esp, 2
+    48                              <1>   popf
+    49                              <1>   popa
+    50                              <1> %endmacro
+    51                              <1> 
+    52                              <1> ; print string into standard output
+    53                              <1> %macro PRINT 1
+    54                              <1>   pusha
+    55                              <1>   pushf
+    56                              <1>   jmp  %%print_str
+    57                              <1> %%str db %1, 10, 0
+    58                              <1> %%strln equ $-%%str
+    59                              <1> %%print_str:
+    60                              <1>   _syscall_write 1, %%str, %%strln
+    61                              <1>   popf
+    62                              <1>   popa
+    63                              <1> %endmacro
+    64                              <1> 
+    65                              <1> %macro SUCCESS_FINISH 0
+    66                              <1>   push dword 0          ; "success"
+    67                              <1>   mov  eax, 1           ; _exit syscall
+    68                              <1>   push eax              ; push anything
+    69                              <1>   int  0x80
+    70                              <1> %endmacro
+     5                                  
+     6                                  global read_number
+     7                                  
+     8                                  section .text
+     9                                  read_number:
+    10 00000000 55                          push ebp              ; organize stack frame
+    11 00000001 89E5                        mov ebp, esp
+    12 00000003 9C                          pushf                 ; store flags
+    13 00000004 53                          push ebx              ; according CDECL convention EBX should be stored
+    14 00000005 56                          push esi              ; according CDECL convention ESI should be stored
+    15 00000006 31F6                        xor esi, esi          ; ESI for result
+    16 00000008 BB0A000000                  mov ebx, 10           ; decimal notation multiplier
+    17                                  .read_digit:
+    18                                      GETCHAR               ; new symbol in AL
+    18 0000000D 9C                  <1>  pushf
+    18 0000000E 57                  <1>  push edi
+    18 0000000F 83EC02              <1>  sub esp, 2
+    18 00000012 89E7                <1>  mov edi, esp
+    18                              <1>  _syscall_read 0, edi, 1
+    18                              <2>  _syscall_3 3, %1, %2, %3
+    18 00000014 6A01                <3>  push %4
+    18 00000016 57                  <3>  push %3
+    18 00000017 6A00                <3>  push %2
+    18 00000019 B803000000          <3>  mov eax, %1
+    18 0000001E 83EC04              <3>  sub esp, 4
+    18 00000021 CD80                <3>  int 0x80
+    18 00000023 83C410              <3>  add esp, 16
+    18 00000026 83F801              <1>  cmp eax, 1
+    18 00000029 7506                <1>  jne %%eof_reached
+    18 0000002B 31C0                <1>  xor eax,eax
+    18 0000002D 8A07                <1>  mov al, [edi]
+    18 0000002F EB04                <1>  jmp %%quit
+    18                              <1> %%eof_reached:
+    18 00000031 31C0                <1>  xor eax, eax
+    18 00000033 F7D0                <1>  not eax
+    18                              <1> %%quit:
+    18 00000035 83C402              <1>  add esp, 2
+    18 00000038 5F                  <1>  pop edi
+    18 00000039 9D                  <1>  popf
+    19 0000003A 83F8FF                      cmp eax, -1
+    20 0000003D 741B                        je .quit
+    21 0000003F 83F830                      cmp eax, '0'
+    22 00000042 7C16                        jnge .quit            ; not digit symbol
+    23 00000044 83F839                      cmp eax, '9'
+    24 00000047 7F11                        jnle .quit            ; not digit symbol
+    25 00000049 31C9                        xor ecx, ecx
+    26 0000004B 88C1                        mov cl, al            ; free AL for multiplication
+    27 0000004D 89F0                        mov eax, esi
+    28 0000004F F7E3                        mul ebx               ; 10*ESI, result in EDX:EAX, suppose that N < EAX => EDX = 0
+    29 00000051 80E930                      sub cl, '0'           ; convert symbol to digit
+    30 00000054 01C8                        add eax, ecx
+    31 00000056 89C6                        mov esi, eax
+    32 00000058 EBB3                        jmp .read_digit
+    33                                  .quit:
+    34 0000005A 89F0                        mov eax, esi          ; result in EAX
+    35 0000005C 5E                          pop esi               ; clean stack frame
+    36 0000005D 5B                          pop ebx
+    37 0000005E 9D                          popf
+    38 0000005F 89EC                        mov esp, ebp
+    39 00000061 5D                          pop ebp
+    40 00000062 C3                          ret
