@@ -34,8 +34,6 @@ print_number:
     test eax, eax         ; EAX = 0 ?
     jne .save_digits
 
-    PUTCHAR 10
-
     cmp edi, '-'         ; negative?
     jne .print_digit
     PUTCHAR '-'
@@ -45,7 +43,6 @@ print_number:
     PUTCHAR dl
     loop .print_digit
 .quit:
-    PUTCHAR 10
     pop edi               ; restore EDI
     pop ebx               ; restore EBX
     popf
