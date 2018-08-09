@@ -12,16 +12,27 @@ read_number:
     pushf                 ; store flags
     push ebx              ; according CDECL convention EBX should be stored
     push esi              ; according CDECL convention ESI should be stored
+    push edi              ; according CDECL convention ESI should be stored
+    mov edi, '+'          ; EDI for number sign, will store as unsigned
     xor esi, esi          ; ESI for result
     mov ebx, 10           ; decimal notation multiplier
+
+    GETCHAR               ; new symbol in AL
+    cmp eax, -1
+    je .quit
+    cmp al, '-'          ; first symbol is sign symbol?
+    jne .not_sign_symbol
+    mov edi, '-'
+
 .read_digit:
     GETCHAR               ; new symbol in AL
     cmp eax, -1
     je .quit
-    cmp eax, '0'
-    jnge .quit            ; not digit symbol
-    cmp eax, '9'
-    jnle .quit            ; not digit symbol
+.not_sign_symbol:
+    cmp al, '0'
+    jnae .quit            ; not digit symbol
+    cmp al, '9'
+    jnbe .quit            ; not digit symbol
     xor ecx, ecx
     mov cl, al            ; free AL for multiplication
     mov eax, esi
@@ -32,7 +43,13 @@ read_number:
     jmp .read_digit
 .quit:
     mov eax, esi          ; result in EAX
-    pop esi               ; clean stack frame
+    cmp edi, '+'
+    je .simple_quit
+    not eax
+    add eax, 1
+.simple_quit:
+    pop edi               ; cleanup
+    pop esi
     pop ebx
     popf
     mov esp, ebp

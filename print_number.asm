@@ -12,7 +12,17 @@ print_number:
     pushf                 ; store flags
     push ebx              ; according CDECL convention EBX should be stored
     mov eax, [ebp+8]      ; store number to print
+    push edi              ; for sign symbol
+    mov edi, '+'
     mov ebx, 10           ; decimal notation
+    xor ecx, ecx          ; digits count
+    cmp eax, 0
+    jg .save_digits      ; is positive?
+    mov edi, '-'
+    mov ecx, edi
+    not eax
+    add eax, 1
+
     xor ecx, ecx          ; digits count
 .save_digits:
     xor edx, edx
@@ -25,12 +35,18 @@ print_number:
     jne .save_digits
 
     PUTCHAR 10
+
+    cmp edi, '-'         ; negative?
+    jne .print_digit
+    PUTCHAR '-'
+
 .print_digit:
     pop edx
     PUTCHAR dl
     loop .print_digit
 .quit:
     PUTCHAR 10
+    pop edi               ; restore EDI
     pop ebx               ; restore EBX
     popf
     mov esp, ebp          ; clean stack frame
