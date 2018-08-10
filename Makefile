@@ -1,12 +1,12 @@
-SOURCES=read_number.asm print_number.asm quadratic_equation.asm
+SOURCES=read_number.asm print_number.asm sum.asm
 OBJECTS=$(SOURCES:.asm=.o)
-EXECUTABLE=quadratic_equation
+EXECUTABLE=sum
 
 $(EXECUTABLE): $(OBJECTS)
 	ld -macosx_version_min 10.7.0 $(OBJECTS) -o $@
 
-quadratic_equation.o: quadratic_equation.asm 
-	nasm -f macho quadratic_equation.asm -g -l quadratic_equation.lst
+sum.o: sum.asm 
+	nasm -f macho sum.asm -g -l sum.lst
 
 read_number.o: read_number.asm 
 	nasm -f macho read_number.asm -g -l read_number.lst
@@ -19,4 +19,4 @@ clean:
 	rm $(EXECUTABLE)
 
 run: $(EXECUTABLE)
-	./$(EXECUTABLE)
+	./$(EXECUTABLE) 3 -4 5 2 -1

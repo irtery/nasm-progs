@@ -36,6 +36,8 @@ print_number:
 
     cmp edi, '-'         ; negative?
     jne .print_digit
+    cmp [esp], dword '0'
+    je .print_digit
     PUTCHAR '-'
 
 .print_digit:
