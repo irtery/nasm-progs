@@ -6,6 +6,14 @@
   _syscall_3 4, %1, %2, %3
 %endmacro
 
+%macro _syscall_read_file 2
+  _syscall_2 5, %1, %2
+%endmacro
+
+%macro _syscall_write_file 3
+  _syscall_3 5, %1, %2, %3
+%endmacro
+
 %macro _syscall_3 4
   push  %4
   push  %3
@@ -14,6 +22,39 @@
   sub esp, 4
   int 0x80
   add esp, 16
+%endmacro
+
+%macro _syscall_2 3
+  push  %3
+  push  %2
+  mov eax, %1
+  sub esp, 4
+  int 0x80
+  add esp, 12
+%endmacro
+
+%macro OPEN_FILE_FOR_READ 1
+  _syscall_read_file %1, 0             ; READ_ONLY
+%endmacro
+
+%macro READ_FROM_FILE 2
+  _syscall_read dword [fdsrc], %1, %2
+%endmacro
+
+%macro WRITE_TO_FILE 2
+  _syscall_read dword [fddest], %1, %2
+%endmacro
+
+%macro OPEN_FILE_FOR_WRITE 1
+  _syscall_write_file %1, 601h, 0666o  ; WRITE with default rights
+%endmacro
+
+%macro CLOSE_FILE 1
+  push  %1
+  mov eax, 6
+  sub esp, 4
+  int 0x80
+  add esp, 8
 %endmacro
 
 %macro GETCHAR 0
