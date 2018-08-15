@@ -13,43 +13,91 @@ extern print_number
 %define local(n) ebp-(4*n)
 
 section .bss
-    buffer resb 4096                     ; will read in 4096 byte chunks
+    buffer       resb 4096                ; will read in 4096 byte chunks
     bufzise equ $-buffer
-    fdsrc  resd 1                        ; source file descriptor
-    fddest resd 1                        ; destination file descriptor
-    flag   resb 1                        ; copy with line numbers (=1) or not (=0)
+    fdsrc        resd 1                   ; source file descriptor
+    fddest       resd 1                   ; destination file descriptor
+    argvp        resd 1                   ; address of begining command line args
+    flag         resb 1                   ; copy with line numbers (=1) or not (=0)
+    line_num     resd 1                   ; current line number                        if flag = 1
+    line_beg     resd 1                   ; address of first symbol in current line    if flag = 1
+    line_num_buf resb 10                  ; buffer for current line number symbols     if flag = 1
 
 section .text
 start:
     call check_arguments                 ; result in EAX, EAX = -1 if error or EAX = [flag] value
     cmp eax, -1
     je print_help_msg
-    mov [flag], eax                      ; save flag for main cycle
+    mov [flag], al                       ; save flag for main cycle
 
     pop ecx                              ; don't need quantity of command line elements
-    mov edi, [esp]                       ; EDI = address of args beginning
+    mov [argvp], esp                     
+    mov esi, [argvp]                     ; ESI = address of first argument
 
-    OPEN_FILE_FOR_READ dword [edi+4]     ; 2nd arg = source file name, EAX = file descriptor or -1 if error
+    OPEN_FILE_FOR_READ dword [esi+4]     ; 2nd arg = source file name, EAX = file descriptor or -1 if error
     cmp eax, -1
     je source_file_error
     mov [fdsrc], eax
 
-    OPEN_FILE_FOR_WRITE dword [edi+8]    ; 3nd arg = dest file name, EAX = file descriptor or -1 if error
+    OPEN_FILE_FOR_WRITE dword [esi+8]     ; 3nd arg = dest file name, EAX = file descriptor or -1 if error
     cmp eax, -1
     je destination_file_error
     mov [fddest], eax
 
-.main_cycle:
-    READ_FROM_FILE buffer, bufzise      ; EAX contains num of read bytes
+    cmp byte [flag], 1
+    jne main_cycle
+    mov dword [line_num], 1
+    call write_line_number
+ 
+main_cycle:
+    READ_FROM_FILE buffer, bufzise         ; EAX contains num of read bytes
     cmp eax, 0
     jle .close_files
 
-    push dword [fdsrc]
-    call print_number
-    add esp, 4
+    mov ebx, eax                           ; EAX will be spoiled
 
-    ; WRITE_TO_FILE buffer, eax
-    ; jmp .main_cycle
+    cmp byte [flag], 0
+    je .simple_write
+    jmp .write_with_numbers
+
+.simple_write:
+    WRITE_TO_FILE buffer, ebx
+    jmp .loop
+
+.write_with_numbers:
+    xor ecx, ecx                            ; ECX = current offset
+    xor esi, esi                            ; offset of first symbol of current line
+    mov edi, buffer
+    mov dword [line_beg], edi               ; address of first symbol of current line
+.process_next_symbol:
+    cmp ebx, ecx                            ; current offset = number of read bytes
+    je .exit_loop_in_loop                                ; next chunk
+    cmp byte [buffer+ecx], 10               ; if not new line
+    jne .next_symbol
+    inc ecx                                 ; print 10 symbol too
+    mov edi, ecx                   
+    sub edi, esi                            ; EDI quantity of symbols in current line
+    WRITE_TO_FILE dword [line_beg], edi
+
+    inc dword [line_num]                    ; begin new line
+    call write_line_number
+
+    mov edi, buffer
+    add edi, ecx
+    mov dword [line_beg], edi              ; change offset of first symbol in line
+    mov esi, ecx
+    jmp .loop_in_loop
+.next_symbol:
+    inc ecx
+.loop_in_loop:
+    jmp .process_next_symbol
+.exit_loop_in_loop:                         ; print left symbols in buffer
+    mov edi, ecx                   
+    sub edi, esi                            ; quantity of left symbols
+    WRITE_TO_FILE dword [line_beg], edi
+
+.loop:
+    jmp main_cycle
 
 .close_files:
     CLOSE_FILE dword [fdsrc]
@@ -91,6 +139,50 @@ check_arguments:
 .error:
     mov eax, -1
 .finish:
+    popf                    
+    mov esp, ebp
+    pop ebp
+    ret
+
+write_line_number:
+    push ebp
+    mov ebp, esp
+    pushf
+    push ebx                        ; according CDECL convention EBX should be stored
+    push ecx                        ; ECX need in main cycle, will store digits count
+    push dword 10                   ; for devide local(4)
+
+    xor ecx, ecx
+    mov eax, [line_num]
+
+.save_in_stack:                     ; will save digits' symbols in inverse order
+    inc ecx
+    xor edx, edx
+    div dword [local(4)]            ; divide EDX:EAX by 10
+                                    ; EAX contains quotient, EDX -- reminder
+
+    add edx, '0'                    ; get decimal symbol
+    push edx                        ; push digit to stack
+
+    cmp eax, 0                      ; EAX = 0 ?
+    jne .save_in_stack
+
+    xor ebx, ebx                    ; current digit number
+.save_in_buf:
+    pop edx
+    mov [line_num_buf+ebx], dl
+    inc ebx
+    cmp ebx, ecx
+    jne .save_in_buf
+
+    mov byte [line_num_buf+ebx], ' '    ; print space after number
+    inc ecx
+
+    WRITE_TO_FILE line_num_buf, ecx
+.finish:
+    add esp, 4
+    pop ecx
+    pop ebx
     popf                    
     mov esp, ebp
     pop ebp
